@@ -7,8 +7,9 @@ import type { IParkingInfoResponse } from '@/interfaces/IParkingInfoResponse'
 import type { IDynamicParkingResponse } from '@/interfaces/IDynamicParkingResponse'
 import type { IParking } from '@/interfaces/IParking'
 import { Loader } from '@googlemaps/js-api-loader'
-import { format } from 'date-fns'
 import { generateRandomIP } from '@/helpers/random'
+import { defaultLocation, MAP_API_KEY } from '@/config'
+import { formatDateTime } from '@/helpers/date'
 
 const loading = ref(true)
 const parkings = ref<IParking[]>([])
@@ -55,7 +56,7 @@ async function initData() {
           fullStatus: segment.FullStatus,
           chargeStatus: segment.ChargeStatus,
           dataCollectTime: segment.DataCollectTime,
-          updateTime: format(new Date(segment.DataCollectTime), 'yyyy-MM-dd HH:mm:ss'),
+          updateTime: new Date(segment.DataCollectTime),
           latitude: parkingInfo.ParkingSegmentPosition?.PositionLat,
           longitude: parkingInfo.ParkingSegmentPosition?.PositionLon,
           fareDescription: parkingInfo.FareDescription,
@@ -76,13 +77,13 @@ async function initData() {
 
 async function initMap() {
   const loader = new Loader({
-    apiKey: 'AIzaSyDLVjzl80Jb6ZY-Otw5PEEVfoaHu4gI0-Y',
+    apiKey: MAP_API_KEY,
     version: 'weekly',
   })
 
   const google = await loader.load()
   const map = new google.maps.Map(mapDiv.value!, {
-    center: { lat: 24.1571344, lng: 120.6539335 }, // 台中市政府
+    center: defaultLocation,
     zoom: 13,
   })
 
@@ -119,14 +120,8 @@ async function initMap() {
   })
 }
 
-const sortedParkings = computed(() => {
-  return parkings.value.slice().sort((a, b) => {
-    return b.availableSpaces - a.availableSpaces
-  })
-})
-
 const updateTime = computed(() => {
-  return sortedParkings.value.length > 0 ? sortedParkings.value[0].updateTime : ''
+  return parkings.value.length > 0 ? formatDateTime(parkings.value[0].updateTime) : ''
 })
 
 onMounted(async () => {
@@ -136,13 +131,20 @@ onMounted(async () => {
 </script>
 
 <template>
-  <div class="parking-view">
+  <div>
     <div ref="mapDiv" style="height: 500px; margin-bottom: 20px"></div>
     <p>更新時間：{{ updateTime }}</p>
-    <DataTable :value="sortedParkings" :loading="loading" paginator :rows="100">
+    <DataTable
+      :value="parkings"
+      :loading="loading"
+      paginator
+      :rows="100"
+      sortField="availableSpaces"
+      :sortOrder="-1"
+    >
       <Column field="parkingSegmentName.zh_tw" sortable header="名稱"></Column>
       <Column field="totalSpaces" sortable header="總車位"></Column>
-      <Column field="availableSpaces" sortable header="可用車位"></Column>
+      <Column field="availableSpaces" :sortable="true" header="可用車位"></Column>
       <Column field="fareDescription" header="費率說明"></Column>
       <Column header="導航">
         <template #body="slotProps">
@@ -158,9 +160,3 @@ onMounted(async () => {
     </DataTable>
   </div>
 </template>
-
-<style scoped>
-.parking-view {
-  padding: 20px;
-}
-</style>

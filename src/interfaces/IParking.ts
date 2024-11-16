@@ -14,7 +14,7 @@ export interface IParking {
   fullStatus: number
   chargeStatus: number
   dataCollectTime: string
-  updateTime: string
+  updateTime: Date
   latitude?: number
   longitude?: number
   fareDescription?: string
