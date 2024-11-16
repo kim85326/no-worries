@@ -1,0 +1,23 @@
+import{f as T,g as S,a as N,p as D,b as $,L as C,M as U,d as I,s as r,B as d,c as L}from"./date-CFhx2LZB.js";import{d as M,r as y,c as R,o as B,a as h,b as f,e as l,t as g,f as o,w as u,u as i,F as V,g as F,h as H,n as _,i as P,_ as z}from"./index-Cgm_eSMV.js";function A(m){const c=m.replace(/\D/g,""),s=c.startsWith("886")?c.slice(3):c;return(s.startsWith("4")?`0${s}`:s).replace(/(\d{2})(\d{8})/,"$1-$2")}function E(m){return m.replace(/^[^市]*(市)/,"").replace(/^\d{3}/,"").trim()}const W=["src","alt"],G={key:0},K=["href"],j=M({__name:"RestaurantsView",setup(m){const c=y(!0),s=y([]),w=y(null);function v(t){const n=D(t.OpenTime)??[];return{restaurantId:t.RestaurantID,restaurantName:t.RestaurantName,description:t.Description,address:E(t.Address),zipCode:t.ZipCode,phone:A(t.Phone),openTime:t.OpenTime,businessHours:n,businessOpenStatus:$(n),picture:{pictureUrl:t.Picture.PictureUrl1,pictureDescription:t.Picture.PictureDescription1},position:{longitude:t.Position.PositionLon,latitude:t.Position.PositionLat,geoHash:t.Position.GeoHash},city:t.City,srcUpdateTime:new Date(t.SrcUpdateTime),updateTime:new Date(t.UpdateTime)}}async function O(){var t;try{const n=S(),e=await N.get("https://tdx.transportdata.tw/api/basic/v2/Tourism/Restaurant/Taichung?%24format=JSON",{headers:{"X-Forwarded-For":n}});console.log("response: ",e.data),s.value=((t=e.data)==null?void 0:t.map(a=>v(a)))??[],console.log("OpenTime",s.value.map(a=>a.openTime))}catch(n){console.error("Error:",n)}finally{c.value=!1}}async function x(){const n=await new C({apiKey:U,version:"weekly"}).load(),e=new n.maps.Map(w.value,{center:I,zoom:13});s.value.forEach(a=>{if(a.position.latitude&&a.position.longitude){const p=new n.maps.Marker({position:{lat:a.position.latitude,lng:a.position.longitude},map:e,title:a.restaurantName}),b=new n.maps.InfoWindow({content:`
+        <div style="padding: 16px; max-width: 300px">
+          <h3 style="margin: 0 0 12px; font-size: 16px; color: #1a73e8">
+            ${a.restaurantName}
+          </h3>
+          <p style="margin: 8px 0; color: #5f6368">
+            <i class="pi pi-map-marker"></i> ${a.address}
+          </p>
+          <p style="margin: 8px 0; color: #5f6368">
+            <i class="pi pi-phone"></i> ${a.phone}
+          </p>
+          <p style="margin: 8px 0; color: #5f6368">
+            <i class="pi pi-clock"></i> ${a.openTime}
+          </p>
+          <a
+            href="https://www.google.com/maps/dir/?api=1&destination=${a.position.latitude},${a.position.longitude}"
+            target="_blank"
+            style="display: inline-block; margin-top: 8px; color: #1a73e8; text-decoration: none"
+          >
+            在 Google Maps 導航 →
+          </a>
+        </div>
+      `});p.addListener("click",()=>{b.open(e,p)})}})}const k=R(()=>s.value.length>0?T(s.value[0].updateTime):"");return B(async()=>{await O(),await x()}),(t,n)=>(h(),f("div",null,[l("div",{ref_key:"mapDiv",ref:w,style:{height:"500px","margin-bottom":"20px"}},null,512),l("p",null,"更新時間："+g(k.value),1),o(i(L),{value:s.value,loading:c.value,paginator:"",rows:100,sortField:"businessOpenStatus",sortOrder:1},{default:u(()=>[o(i(r),{header:"圖片"},{body:u(e=>[l("img",{src:e.data.picture.pictureUrl,alt:e.data.picture.pictureDescription,style:{width:"100px",height:"100px","object-fit":"cover"}},null,8,W)]),_:1}),o(i(r),{field:"restaurantName",header:"餐廳名稱",sortable:""}),o(i(r),{field:"address",header:"地址",sortable:""}),o(i(r),{field:"phone",header:"電話"}),o(i(r),{field:"openTime",header:"營業時間"}),o(i(r),{header:"parseTime"},{body:u(e=>{var a;return[(a=e.data.businessHours)!=null&&a.length?(h(),f("div",G,[(h(!0),f(V,null,F(e.data.businessHours,(p,b)=>(h(),f("div",{key:b,class:"period-item"},[l("span",null,g(p.start)+" ~ "+g(p.end),1)]))),128))])):H("",!0)]}),_:1}),o(i(r),{header:"營業狀態",field:"businessOpenStatus",sortable:""},{body:u(e=>[l("span",{class:_(["status-badge",{open:e.data.businessOpenStatus===i(d).Open,unknown:e.data.businessOpenStatus===i(d).Unknown,closed:e.data.businessOpenStatus===i(d).Closed}])},[l("i",{class:_(["pi",{"pi-check-circle":e.data.businessOpenStatus===i(d).Open,"pi-question-circle":e.data.businessOpenStatus===i(d).Unknown,"pi-times-circle":e.data.businessOpenStatus===i(d).Closed}])},null,2),P(" "+g(e.data.businessOpenStatus===i(d).Open?"營業中":e.data.businessOpenStatus===i(d).Unknown?"未知":"已打烊"),1)],2)]),_:1}),o(i(r),{header:"導航"},{body:u(e=>[l("a",{href:`https://www.google.com/maps/dir/?api=1&destination=${e.data.position.latitude},${e.data.position.longitude}`,target:"_blank",class:"nav-link"}," GO ",8,K)]),_:1})]),_:1},8,["value","loading"])]))}}),X=z(j,[["__scopeId","data-v-ade5d9c0"]]);export{X as default};
