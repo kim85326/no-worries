@@ -108,7 +108,7 @@ async function initMap() {
           lat: space.latitude,
           lng: space.longitude,
         },
-        radius: 50 + space.totalSpaces * 2, // 根據總車位數調整圓圈大小
+        radius: 50 + space.availableSpaces * 5,
       })
 
       const infoWindow = new google.maps.InfoWindow({
