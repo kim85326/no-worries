@@ -19,6 +19,7 @@ async function initData() {
   try {
     const randomIP = generateRandomIP()
 
+    const baseURL = import.meta.env.VITE_API_BASE_URL
     const [dynamicParkingResponse, parkingInfoResponse] = await Promise.all([
       axios.get<IDynamicParkingResponse>(
         'https://tdx.transportdata.tw/api/basic/v1/Parking/OnStreet/ParkingSegmentAvailability/City/Taichung?%24format=JSON',
@@ -28,7 +29,7 @@ async function initData() {
           },
         },
       ),
-      axios.get<IParkingInfoResponse>('/tc-parking.json'),
+      axios.get<IParkingInfoResponse>(`${baseURL}/tc-parking.json`),
     ])
 
     console.log('dynamicParkingResponse: ', dynamicParkingResponse.data)
@@ -117,8 +118,8 @@ async function initMap() {
             <h3 style="margin: 0 0 8px">${space.parkingSegmentName.zh_tw}</h3>
             <p style="margin: 4px 0">可用車位: ${space.availableSpaces}/${space.totalSpaces}</p>
             <p style="margin: 4px 0">費率: ${space.fareDescription}</p>
-            <a href="https://www.google.com/maps/dir/?api=1&destination=${space.latitude},${space.longitude}" 
-              target="_blank" 
+            <a href="https://www.google.com/maps/dir/?api=1&destination=${space.latitude},${space.longitude}"
+              target="_blank"
               style="display: inline-block; margin-top: 8px; color: #1a73e8; text-decoration: none">
               在 Google Maps 導航 →
             </a>
