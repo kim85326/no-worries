@@ -8,9 +8,10 @@ import { generateRandomIP } from '@/helpers/random'
 import type { IRestaurantResponse } from '@/interfaces/IRestaurantResponse'
 import type { IRestaurant } from '@/interfaces/IRestaurant'
 import { defaultLocation, MAP_API_KEY } from '@/config'
-import { formatDateTime, isBusinessOpen, parseOpenTime } from '@/helpers/date'
+import { formatDateTime, getBusinessOpenStatus, parseOpenTime } from '@/helpers/date'
 import { formatTaiwanPhoneNumber } from '@/helpers/phone'
 import { formatAddress } from '@/helpers/address'
+import { BusinessOpenStatus } from '@/interfaces/enum'
 
 const loading = ref(true)
 const restaurants = ref<IRestaurant[]>([])
@@ -28,7 +29,7 @@ function formatRestaurant(response: IRestaurantResponse): IRestaurant {
     phone: formatTaiwanPhoneNumber(response.Phone),
     openTime: response.OpenTime,
     businessHours,
-    isBusinessOpen: isBusinessOpen(businessHours),
+    businessOpenStatus: getBusinessOpenStatus(businessHours),
     picture: {
       pictureUrl: response.Picture.PictureUrl1,
       pictureDescription: response.Picture.PictureDescription1,
@@ -145,8 +146,8 @@ onMounted(async () => {
       :loading="loading"
       paginator
       :rows="100"
-      sortField="isBusinessOpen"
-      :sortOrder="-1"
+      sortField="businessOpenStatus"
+      :sortOrder="1"
     >
       <Column header="圖片">
         <template #body="slotProps">
@@ -162,7 +163,7 @@ onMounted(async () => {
       <Column field="phone" header="電話"></Column>
       <Column field="openTime" header="營業時間"></Column>
       <!-- for debug -->
-      <!-- <Column header="時間">
+      <Column header="parseTime">
         <template #body="slotProps">
           <div v-if="slotProps.data.businessHours?.length">
             <div
@@ -174,14 +175,38 @@ onMounted(async () => {
             </div>
           </div>
         </template>
-      </Column> -->
-      <Column header="營業狀態" field="isBusinessOpen" sortable>
+      </Column>
+      <Column header="營業狀態" field="businessOpenStatus" sortable>
         <template #body="slotProps">
-          <span :class="['status-badge', slotProps.data.isBusinessOpen ? 'open' : 'closed']">
+          <span
+            :class="[
+              'status-badge',
+              {
+                open: slotProps.data.businessOpenStatus === BusinessOpenStatus.Open,
+                unknown: slotProps.data.businessOpenStatus === BusinessOpenStatus.Unknown,
+                closed: slotProps.data.businessOpenStatus === BusinessOpenStatus.Closed,
+              },
+            ]"
+          >
             <i
-              :class="['pi', slotProps.data.isBusinessOpen ? 'pi-check-circle' : 'pi-times-circle']"
+              :class="[
+                'pi',
+                {
+                  'pi-check-circle': slotProps.data.businessOpenStatus === BusinessOpenStatus.Open,
+                  'pi-question-circle':
+                    slotProps.data.businessOpenStatus === BusinessOpenStatus.Unknown,
+                  'pi-times-circle':
+                    slotProps.data.businessOpenStatus === BusinessOpenStatus.Closed,
+                },
+              ]"
             ></i>
-            {{ slotProps.data.isBusinessOpen ? '營業中' : '已打烊' }}
+            {{
+              slotProps.data.businessOpenStatus === BusinessOpenStatus.Open
+                ? '營業中'
+                : slotProps.data.businessOpenStatus === BusinessOpenStatus.Unknown
+                  ? '未知'
+                  : '已打烊'
+            }}
           </span>
         </template>
       </Column>
@@ -215,12 +240,13 @@ onMounted(async () => {
   color: #2e7d32;
 }
 
+.status-badge.unknown {
+  background-color: #fff3e0;
+  color: #ef6c00;
+}
+
 .status-badge.closed {
   background-color: #ffebee;
   color: #c62828;
-}
-
-.status-badge i {
-  font-size: 16px;
 }
 </style>

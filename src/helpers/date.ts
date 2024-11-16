@@ -1,3 +1,4 @@
+import { BusinessOpenStatus } from '@/interfaces/enum'
 import type { IPeriod } from '@/interfaces/IRestaurant'
 import { parse, format, isWithinInterval, addDays } from 'date-fns'
 
@@ -12,64 +13,91 @@ export function formatDateTime(date: Date) {
  * @param {string} openTime - 餐廳的營業時間描述
  * @returns {Array} 包含開始和結束時間的物件陣列，格式為 [{ start: 'HH:mm', end: 'HH:mm' }]
  */
-export function parseOpenTime(openTime: string) {
-  if (!openTime || openTime.includes('詳見') || openTime.includes('請洽')) {
-    return null
-  }
+export function parseOpenTime(openTime: string): { start: string; end: string }[] | null {
+  if (!openTime) return null
+  if (openTime.includes('詳見') || openTime.includes('公休')) return null
 
-  const timeRegex =
-    /(AM|PM|上午|下午)?\s*(\d{1,2}):(\d{2})\s*[-~到–]\s*(AM|PM|上午|下午)?\s*(\d{1,2}):(\d{2})/gi
-  const matches = [...openTime.matchAll(timeRegex)]
+  // Split by "/" for multiple ranges
+  const ranges = openTime.split(/[/、]/).map((range) => range.trim())
 
-  if (matches.length === 0) {
-    return null
-  }
+  const parseRange = (range: string) => {
+    // Normalize string
+    const normalizedTime = range
+      .replace(/[^A-Za-z0-9:：\-~～–\s]/g, '')
+      .replace(/：/g, ':')
+      .trim()
 
-  const timeRanges = matches.map((match) => {
-    const [_, startPeriod, startHour, startMinute, endPeriod, endHour, endMinute] = match
+    // Split into start and end times
+    const parts = normalizedTime.split(/[-~～–]/).map((p) => p.trim())
+    if (parts.length !== 2) return null
+
+    const [startPart, endPart] = parts
+
+    // Parse time parts
+    const timePattern = /(AM|PM)?\s*(\d{1,2}):(\d{2})\s*(AM|PM)?/i
+    const startMatch = startPart.match(timePattern)
+    const endMatch = endPart.match(timePattern)
+
+    if (!startMatch || !endMatch) return null
+
+    const convertHour = (
+      hour: string,
+      preMeridiem: string | undefined,
+      postMeridiem: string | undefined,
+    ): number => {
+      let h = parseInt(hour)
+      const meridiem = (preMeridiem || postMeridiem)?.toUpperCase()
+      const isPM = meridiem === 'PM'
+      const isAM = meridiem === 'AM'
+
+      if (!meridiem && h >= 0 && h <= 23) return h
+      if (isPM) {
+        if (h === 12) return 12
+        if (h < 12) return h + 12
+        return h
+      }
+      if (isAM && h === 12) return 0
+      return h
+    }
+
+    const sHour = convertHour(startMatch[2], startMatch[1], startMatch[4])
+    const eHour = convertHour(endMatch[2], endMatch[1], endMatch[4])
 
     return {
-      start: formatTime(startHour, startMinute, isPM(startPeriod)),
-      end: formatTime(endHour, endMinute, isPM(endPeriod)),
+      start: `${sHour.toString().padStart(2, '0')}:${startMatch[3]}`,
+      end: `${eHour.toString().padStart(2, '0')}:${endMatch[3]}`,
     }
-  })
+  }
 
-  return timeRanges
+  const results = ranges
+    .map(parseRange)
+    .filter((result): result is { start: string; end: string } => result !== null)
+  return results.length > 0 ? results : null
 }
 
-function isPM(period: string | undefined): boolean {
-  return period?.toUpperCase().includes('PM') || period?.includes('下午') || false
-}
-
-function formatTime(hour: string, minute: string, isPM: boolean): string {
-  let h = parseInt(hour, 10)
-  const m = parseInt(minute, 10)
-
-  if (isPM && h < 12) h += 12
-  if (!isPM && h === 12) h = 0
-
-  return `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}`
-}
-
-/**
- * 判斷是否在營業時間內
- * @param {Array} businessHours - 營業時間 [{ start: 'HH:mm', end: 'HH:mm' }]
- * @param {Date} [currentTime=new Date()] - 當前時間（可選，預設為現在）
- * @returns {boolean} 是否營業中
- */
-export function isBusinessOpen(businessHours: IPeriod[], currentTime = new Date()): boolean {
+export function getBusinessOpenStatus(
+  businessHours: IPeriod[],
+  currentTime = new Date(),
+): BusinessOpenStatus {
   const now = format(currentTime, 'HH:mm')
-
   const nowTime = parse(now, 'HH:mm', currentTime)
 
-  return businessHours.some(({ start, end }) => {
+  // 如果沒有營業時間，返回 Unknown
+  if (!businessHours || businessHours.length === 0) {
+    return BusinessOpenStatus.Unknown
+  }
+
+  const isOpen = businessHours.some(({ start, end }) => {
     const startTime = parse(start, 'HH:mm', currentTime)
     let endTime = parse(end, 'HH:mm', currentTime)
 
+    // 處理跨午夜的情況
     if (endTime < startTime) {
       endTime = addDays(endTime, 1)
     }
 
     return isWithinInterval(nowTime, { start: startTime, end: endTime })
   })
+
+  return isOpen ? BusinessOpenStatus.Open : BusinessOpenStatus.Closed
 }

@@ -1,3 +1,5 @@
+import type { BusinessOpenStatus } from './enum'
+
 export interface IRestaurant {
   restaurantId: string
   restaurantName: string
@@ -7,7 +9,7 @@ export interface IRestaurant {
   phone: string
   openTime: string
   businessHours: IPeriod[]
-  isBusinessOpen: boolean
+  businessOpenStatus: BusinessOpenStatus
   picture: {
     pictureUrl: string
     pictureDescription: string
