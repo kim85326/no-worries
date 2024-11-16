@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { onMounted, ref } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import DataTable from 'primevue/datatable'
 import Column from 'primevue/column'
 import axios from 'axios'
@@ -8,54 +8,65 @@ import type { IDynamicParkingResponse } from '@/interfaces/IDynamicParkingRespon
 import type { IParking } from '@/interfaces/IParking'
 import { Loader } from '@googlemaps/js-api-loader'
 import { format } from 'date-fns'
+import { generateRandomIP } from '@/helpers/random'
 
 const loading = ref(true)
-const parkingSpaces = ref<IParking[]>([])
+const parkings = ref<IParking[]>([])
 const mapDiv = ref<HTMLElement | null>(null)
 
 async function initData() {
   try {
-    const [availabilityData, parkingInfoData] = await Promise.all([
+    const randomIP = generateRandomIP()
+
+    const [dynamicParkingResponse, parkingInfoResponse] = await Promise.all([
       axios.get<IDynamicParkingResponse>(
-        // 'https://tdx.transportdata.tw/api/basic/v1/Parking/OnStreet/ParkingSegmentAvailability/City/Taichung?%24format=JSON',
-        '/tc-dynamic-parking.json',
+        'https://tdx.transportdata.tw/api/basic/v1/Parking/OnStreet/ParkingSegmentAvailability/City/Taichung?%24format=JSON',
+        {
+          headers: {
+            'X-Forwarded-For': randomIP,
+          },
+        },
       ),
       axios.get<IParkingInfoResponse>('/tc-parking.json'),
     ])
-    console.log('availabilityData: ', availabilityData.data)
-    console.log('parkingInfoData: ', parkingInfoData.data)
-    const mergedData = availabilityData.data.CurbParkingSegmentAvailabilities.map((segment) => {
-      const parkingInfo = parkingInfoData.data.ParkingSegments.find(
-        (info) => info.ParkingSegmentID === segment.ParkingSegmentID,
-      )
-      if (!parkingInfo) return null
-      return {
-        parkingSegmentID: segment.ParkingSegmentID,
-        parkingSegmentName: {
-          zh_tw: segment.ParkingSegmentName.Zh_tw,
-        },
-        totalSpaces: segment.TotalSpaces,
-        availableSpaces: segment.AvailableSpaces,
-        availabilities: segment.Availabilities.map((a) => ({
-          spaceType: a.SpaceType,
-          numberOfSpaces: a.NumberOfSpaces,
-          availableSpaces: a.AvailableSpaces,
-        })),
-        serviceStatus: segment.ServiceStatus,
-        fullStatus: segment.FullStatus,
-        chargeStatus: segment.ChargeStatus,
-        dataCollectTime: segment.DataCollectTime,
-        updateTime: format(new Date(segment.DataCollectTime), 'yyyy-MM-dd HH:mm:ss'),
-        latitude: parkingInfo.ParkingSegmentPosition?.PositionLat,
-        longitude: parkingInfo.ParkingSegmentPosition?.PositionLon,
-        fareDescription: parkingInfo.FareDescription,
-      }
-    })
+
+    console.log('dynamicParkingResponse: ', dynamicParkingResponse.data)
+    console.log('parkingInfoResponse: ', parkingInfoResponse.data)
+
+    const mergedData = dynamicParkingResponse.data.CurbParkingSegmentAvailabilities.map(
+      (segment) => {
+        const parkingInfo = parkingInfoResponse.data.ParkingSegments.find(
+          (info) => info.ParkingSegmentID === segment.ParkingSegmentID,
+        )
+        if (!parkingInfo) return null
+        return {
+          parkingSegmentID: segment.ParkingSegmentID,
+          parkingSegmentName: {
+            zh_tw: segment.ParkingSegmentName.Zh_tw,
+          },
+          totalSpaces: segment.TotalSpaces,
+          availableSpaces: segment.AvailableSpaces,
+          availabilities: segment.Availabilities.map((a) => ({
+            spaceType: a.SpaceType,
+            numberOfSpaces: a.NumberOfSpaces,
+            availableSpaces: a.AvailableSpaces,
+          })),
+          serviceStatus: segment.ServiceStatus,
+          fullStatus: segment.FullStatus,
+          chargeStatus: segment.ChargeStatus,
+          dataCollectTime: segment.DataCollectTime,
+          updateTime: format(new Date(segment.DataCollectTime), 'yyyy-MM-dd HH:mm:ss'),
+          latitude: parkingInfo.ParkingSegmentPosition?.PositionLat,
+          longitude: parkingInfo.ParkingSegmentPosition?.PositionLon,
+          fareDescription: parkingInfo.FareDescription,
+        }
+      },
+    )
       .filter((x) => x !== null)
       .filter((x) => x.availabilities.some((a) => a.numberOfSpaces > 0))
 
     console.log('mergedData: ', mergedData)
-    parkingSpaces.value = mergedData
+    parkings.value = mergedData
   } catch (error) {
     console.error('Error:', error)
   } finally {
@@ -75,7 +86,7 @@ async function initMap() {
     zoom: 13,
   })
 
-  parkingSpaces.value.forEach((space) => {
+  parkings.value.forEach((space) => {
     if (space.latitude && space.longitude) {
       const marker = new google.maps.Marker({
         position: {
@@ -108,6 +119,16 @@ async function initMap() {
   })
 }
 
+const sortedParkings = computed(() => {
+  return parkings.value.slice().sort((a, b) => {
+    return b.availableSpaces - a.availableSpaces
+  })
+})
+
+const updateTime = computed(() => {
+  return sortedParkings.value.length > 0 ? sortedParkings.value[0].updateTime : ''
+})
+
 onMounted(async () => {
   await initData()
   await initMap()
@@ -117,14 +138,23 @@ onMounted(async () => {
 <template>
   <div class="parking-view">
     <div ref="mapDiv" style="height: 500px; margin-bottom: 20px"></div>
-
-    <DataTable :value="parkingSpaces" :loading="loading" paginator :rows="100">
-      <Column field="parkingSegmentID" header="ID"></Column>
-      <Column field="parkingSegmentName.Zh_tw" header="名稱"></Column>
-      <Column field="totalSpaces" header="總車位"></Column>
-      <Column field="availableSpaces" header="可用車位"></Column>
+    <p>更新時間：{{ updateTime }}</p>
+    <DataTable :value="sortedParkings" :loading="loading" paginator :rows="100">
+      <Column field="parkingSegmentName.zh_tw" sortable header="名稱"></Column>
+      <Column field="totalSpaces" sortable header="總車位"></Column>
+      <Column field="availableSpaces" sortable header="可用車位"></Column>
       <Column field="fareDescription" header="費率說明"></Column>
-      <Column field="updateTime" header="更新時間"></Column>
+      <Column header="導航">
+        <template #body="slotProps">
+          <a
+            :href="`https://www.google.com/maps/dir/?api=1&destination=${slotProps.data.latitude},${slotProps.data.longitude}`"
+            target="_blank"
+            class="nav-link"
+          >
+            GO
+          </a>
+        </template>
+      </Column>
     </DataTable>
   </div>
 </template>

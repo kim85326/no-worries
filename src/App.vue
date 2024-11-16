@@ -26,7 +26,7 @@ const items = ref([
 </script>
 
 <template>
-  <div class="card">
+  <div>
     <Menubar :model="items" class="mb-4">
       <template #start>
         <img alt="logo" src="@/assets/logo.svg" height="40" class="mr-2" />
