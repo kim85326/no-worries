@@ -8,16 +8,17 @@ import { generateRandomIP } from '@/helpers/random'
 import type { IRestaurantResponse } from '@/interfaces/IRestaurantResponse'
 import type { IRestaurant } from '@/interfaces/IRestaurant'
 import { defaultLocation, MAP_API_KEY } from '@/config'
-import { formatDateTime } from '@/helpers/date'
+import { formatDateTime, isBusinessOpen, parseOpenTime } from '@/helpers/date'
 import { formatTaiwanPhoneNumber } from '@/helpers/phone'
 import { formatAddress } from '@/helpers/address'
-import InputText from 'primevue/inputtext'
 
 const loading = ref(true)
 const restaurants = ref<IRestaurant[]>([])
 const mapDiv = ref<HTMLElement | null>(null)
 
 function formatRestaurant(response: IRestaurantResponse): IRestaurant {
+  const businessHours = parseOpenTime(response.OpenTime) ?? []
+
   return {
     restaurantId: response.RestaurantID,
     restaurantName: response.RestaurantName,
@@ -26,6 +27,8 @@ function formatRestaurant(response: IRestaurantResponse): IRestaurant {
     zipCode: response.ZipCode,
     phone: formatTaiwanPhoneNumber(response.Phone),
     openTime: response.OpenTime,
+    businessHours,
+    isBusinessOpen: isBusinessOpen(businessHours),
     picture: {
       pictureUrl: response.Picture.PictureUrl1,
       pictureDescription: response.Picture.PictureDescription1,
@@ -56,6 +59,11 @@ async function initData() {
 
     console.log('response: ', response.data)
     restaurants.value = response.data?.map((x) => formatRestaurant(x)) ?? []
+
+    console.log(
+      'OpenTime',
+      restaurants.value.map((x) => x.openTime),
+    )
   } catch (error) {
     console.error('Error:', error)
   } finally {
@@ -100,7 +108,7 @@ async function initMap() {
           <p style="margin: 8px 0; color: #5f6368">
             <i class="pi pi-clock"></i> ${restaurant.openTime}
           </p>
-          <a 
+          <a
             href="https://www.google.com/maps/dir/?api=1&destination=${restaurant.position.latitude},${restaurant.position.longitude}"
             target="_blank"
             style="display: inline-block; margin-top: 8px; color: #1a73e8; text-decoration: none"
@@ -132,7 +140,14 @@ onMounted(async () => {
   <div>
     <div ref="mapDiv" style="height: 500px; margin-bottom: 20px"></div>
     <p>更新時間：{{ updateTime }}</p>
-    <DataTable :value="restaurants" :loading="loading" paginator :rows="100">
+    <DataTable
+      :value="restaurants"
+      :loading="loading"
+      paginator
+      :rows="100"
+      sortField="isBusinessOpen"
+      :sortOrder="-1"
+    >
       <Column header="圖片">
         <template #body="slotProps">
           <img
@@ -146,6 +161,30 @@ onMounted(async () => {
       <Column field="address" header="地址" sortable></Column>
       <Column field="phone" header="電話"></Column>
       <Column field="openTime" header="營業時間"></Column>
+      <!-- for debug -->
+      <!-- <Column header="時間">
+        <template #body="slotProps">
+          <div v-if="slotProps.data.businessHours?.length">
+            <div
+              v-for="(period, index) in slotProps.data.businessHours"
+              :key="index"
+              class="period-item"
+            >
+              <span>{{ period.start }} ~ {{ period.end }}</span>
+            </div>
+          </div>
+        </template>
+      </Column> -->
+      <Column header="營業狀態" field="isBusinessOpen" sortable>
+        <template #body="slotProps">
+          <span :class="['status-badge', slotProps.data.isBusinessOpen ? 'open' : 'closed']">
+            <i
+              :class="['pi', slotProps.data.isBusinessOpen ? 'pi-check-circle' : 'pi-times-circle']"
+            ></i>
+            {{ slotProps.data.isBusinessOpen ? '營業中' : '已打烊' }}
+          </span>
+        </template>
+      </Column>
       <Column header="導航">
         <template #body="slotProps">
           <a
@@ -160,3 +199,28 @@ onMounted(async () => {
     </DataTable>
   </div>
 </template>
+
+<style scoped>
+.status-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 8px;
+  border-radius: 4px;
+  font-size: 14px;
+}
+
+.status-badge.open {
+  background-color: #e8f5e9;
+  color: #2e7d32;
+}
+
+.status-badge.closed {
+  background-color: #ffebee;
+  color: #c62828;
+}
+
+.status-badge i {
+  font-size: 16px;
+}
+</style>

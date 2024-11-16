@@ -6,6 +6,8 @@ export interface IRestaurant {
   zipCode: string
   phone: string
   openTime: string
+  businessHours: IPeriod[]
+  isBusinessOpen: boolean
   picture: {
     pictureUrl: string
     pictureDescription: string
@@ -18,4 +20,9 @@ export interface IRestaurant {
   city: string
   srcUpdateTime: Date
   updateTime: Date
+}
+
+export interface IPeriod {
+  start: string
+  end: string
 }
