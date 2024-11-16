@@ -89,13 +89,26 @@ async function initMap() {
 
   parkings.value.forEach((space) => {
     if (space.latitude && space.longitude) {
-      const marker = new google.maps.Marker({
-        position: {
+      const useRate = space.availableSpaces / space.totalSpaces
+
+      const getColor = (rate: number) => {
+        if (rate > 0.5) return '#4CAF50' // 綠色: 很多空位
+        if (rate > 0.3) return '#FFC107' // 黃色: 一般
+        return '#F44336' // 紅色: 很少空位
+      }
+
+      const circle = new google.maps.Circle({
+        strokeColor: getColor(useRate),
+        strokeOpacity: 0.8,
+        strokeWeight: 2,
+        fillColor: getColor(useRate),
+        fillOpacity: 0.35,
+        map,
+        center: {
           lat: space.latitude,
           lng: space.longitude,
         },
-        map,
-        title: space.parkingSegmentName.zh_tw,
+        radius: 50 + space.totalSpaces * 2, // 根據總車位數調整圓圈大小
       })
 
       const infoWindow = new google.maps.InfoWindow({
@@ -113,8 +126,21 @@ async function initMap() {
         `,
       })
 
-      marker.addListener('click', () => {
-        infoWindow.open(map, marker)
+      circle.addListener('click', () => {
+        const infoWindow = new google.maps.InfoWindow({
+          content: `
+          <div style="padding: 8px">
+            <h3 style="margin: 0 0 8px">${space.parkingSegmentName.zh_tw}</h3>
+            <p style="margin: 4px 0">可用車位: ${space.availableSpaces}/${space.totalSpaces}</p>
+            <p style="margin: 4px 0">費率: ${space.fareDescription}</p>
+          </div>
+        `,
+          position: {
+            lat: space.latitude,
+            lng: space.longitude,
+          },
+        })
+        infoWindow.open(map)
       })
     }
   })
