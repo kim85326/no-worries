@@ -82,14 +82,15 @@ async function initMap() {
     version: 'weekly',
   })
 
-  const google = await loader.load()
-  const map = new google.maps.Map(mapDiv.value!, {
+  const { Map, Circle, InfoWindow } = await loader.importLibrary("maps");
+  const map = new Map(mapDiv.value!, {
     center: defaultLocation,
     zoom: 13,
   })
 
   parkings.value.forEach((space) => {
     if (space.latitude && space.longitude) {
+      const { latitude, longitude } = space;
       const useRate = space.availableSpaces / space.totalSpaces
 
       const getColor = (rate: number) => {
@@ -98,7 +99,7 @@ async function initMap() {
         return '#F44336' // 紅色: 很少空位
       }
 
-      const circle = new google.maps.Circle({
+      const circle = new Circle({
         strokeColor: getColor(useRate),
         strokeOpacity: 0.8,
         strokeWeight: 2,
@@ -106,44 +107,62 @@ async function initMap() {
         fillOpacity: 0.35,
         map,
         center: {
-          lat: space.latitude,
-          lng: space.longitude,
+          lat: latitude,
+          lng: longitude,
         },
         radius: 50 + space.availableSpaces * 5,
       })
 
-      const infoWindow = new google.maps.InfoWindow({
-        content: `
-          <div style="padding: 8px">
-            <h3 style="margin: 0 0 8px">${space.parkingSegmentName.zh_tw}</h3>
-            <p style="margin: 4px 0">可用車位: ${space.availableSpaces}/${space.totalSpaces}</p>
-            <p style="margin: 4px 0">費率: ${space.fareDescription}</p>
-            <a href="https://www.google.com/maps/dir/?api=1&destination=${space.latitude},${space.longitude}"
-              target="_blank"
-              style="display: inline-block; margin-top: 8px; color: #1a73e8; text-decoration: none">
-              在 Google Maps 導航 →
-            </a>
-          </div>
-        `,
-      })
+      circle.addListener('click', async () => {
+        try {
+          const nearbyPlaces = await fetchNearbyPlaces(latitude, longitude, loader, map)
+          console.log('nearbyPlaces:', nearbyPlaces);
+          const placesList = nearbyPlaces.map((place) => `<li>${place.name}</li>`).join('')
 
-      circle.addListener('click', () => {
-        const infoWindow = new google.maps.InfoWindow({
-          content: `
-          <div style="padding: 8px">
-            <h3 style="margin: 0 0 8px">${space.parkingSegmentName.zh_tw}</h3>
-            <p style="margin: 4px 0">可用車位: ${space.availableSpaces}/${space.totalSpaces}</p>
-            <p style="margin: 4px 0">費率: ${space.fareDescription}</p>
-          </div>
-        `,
-          position: {
-            lat: space.latitude,
-            lng: space.longitude,
-          },
-        })
-        infoWindow.open(map)
+          const infoWindow = new InfoWindow({
+            content: `
+              <div style="padding: 8px">
+                <h3 style="margin: 0 0 8px">${space.parkingSegmentName.zh_tw}</h3>
+                <p style="margin: 4px 0">可用車位: ${space.availableSpaces}/${space.totalSpaces}</p>
+                <p style="margin: 4px 0">費率: ${space.fareDescription}</p>
+                <h4>附近餐廳:</h4>
+                <ul>${placesList}</ul>
+              </div>
+            `,
+              position: {
+                lat: space.latitude,
+                lng: space.longitude,
+              },
+            })
+          infoWindow.open(map)
+        } catch (error) {
+          console.error('Error fetching nearby places:', error)
+        }
       })
     }
+  })
+}
+
+async function fetchNearbyPlaces(latitude: number, longitude: number, loader: any, map: any): Promise<IPlaceResult[]> {
+  const { PlacesService, PlacesServiceStatus } = await loader.importLibrary("places");
+  const service = new PlacesService(map)
+
+  return new Promise((resolve, reject) => {
+    service.nearbySearch(
+      {
+        location: { lat: latitude, lng: longitude },
+        radius: 1000,
+        type: 'restaurant',
+        openNow: true,
+      },
+      (results: IPlaceResult[], status: typeof PlacesServiceStatus) => {
+        if (status === PlacesServiceStatus.OK) {
+          resolve(results)
+        } else {
+          reject(status)
+        }
+      },
+    )
   })
 }
 
