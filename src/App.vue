@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { RouterLink, RouterView } from 'vue-router'
+import { RouterView } from 'vue-router'
 import { useRouter } from 'vue-router'
 import { ref } from 'vue'
 import Menubar from 'primevue/menubar'
